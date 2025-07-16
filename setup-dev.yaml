@@ -1,127 +1,128 @@
-  - name: Configurar ambiente de desenvolvimento Fedora
-    hosts: localhost
-    become: yes
+---
+- name: Configurar ambiente de desenvolvimento Fedora
+  hosts: localhost
+  connection: local
+  become: true
 
-    vars:
-      nodejs_version: '20' # Ajuste a versão se desejar
+  vars:
+    nodejs_version: '20'
 
-    tasks:
-      - name: Atualizar pacotes
-        dnf:
-          name: '*'
-          state: latest
+  pre_tasks:
+    - name: Atualizar pacotes
+      ansible.builtin.dnf:
+        name: "*"
+        state: present
 
-      - name: Instalar Git
-        dnf:
-          name: git
-          state: present
+  tasks:
+    - name: Instalar pacotes base
+      ansible.builtin.dnf:
+        name:
+          - git
+          - php
+          - docker
+          - docker-compose
+          - flatpak
+        state: present
 
-      - name: Instalar VS Code repositório
-        command: rpm --import https://packages.microsoft.com/keys/microsoft.asc
-        args:
-          creates: /etc/yum.repos.d/vscode.repo
+    - name: Importar chave GPG do VS Code
+      ansible.builtin.rpm_key:
+        state: present
+        key: https://packages.microsoft.com/keys/microsoft.asc
 
-      - name: Adicionar repositório VS Code
-        copy:
-          dest: /etc/yum.repos.d/vscode.repo
-          content: |
-            [code]
-            name=Visual Studio Code
-            baseurl=https://packages.microsoft.com/yumrepos/vscode
-            enabled=1
-            gpgcheck=1
-            gpgkey=https://packages.microsoft.com/keys/microsoft.asc
+    - name: Adicionar repositório do VS Code
+      ansible.builtin.yum_repository:
+        name: code
+        description: Visual Studio Code
+        baseurl: https://packages.microsoft.com/yumrepos/vscode
+        enabled: true
+        gpgcheck: true
+        gpgkey: https://packages.microsoft.com/keys/microsoft.asc
 
-      - name: Instalar VS Code
-        dnf:
-          name: code
-          state: present
+    - name: Instalar VS Code
+      ansible.builtin.dnf:
+        name: code
+        state: present
 
-      - name: Instalar Node.js e npm
-        dnf:
-          name: nodejs
-          state: present
+    - name: Habilitar módulo Node.js {{ nodejs_version }}
+      ansible.builtin.command:
+        cmd: dnf module enable -y nodejs:{{ nodejs_version }}
+      args:
+        creates: "/usr/lib/node_modules"
 
-      - name: Verificar se npm está instalado
-        command: npm --version
-        register: npm_version
-        failed_when: npm_version.rc != 0
+    - name: Instalar Node.js
+      ansible.builtin.dnf:
+        name: nodejs
+        state: present
 
-      - name: Instalar pnpm globalmente
-        npm:
-          name: pnpm
-          global: yes
+    - name: Instalar pacotes npm globais
+      community.general.npm:
+        name: "{{ item }}"
+        global: true
+      loop:
+        - pnpm
+        - yarn
+        - '@nestjs/cli'
 
-      - name: Instalar Yarn globalmente
-        npm:
-          name: yarn
-          global: yes
+    - name: Baixar instalador do Composer
+      ansible.builtin.get_url:
+        url: https://getcomposer.org/installer
+        dest: /tmp/composer-setup.php
+        mode: '0644'
 
-      - name: Instalar PHP
-        dnf:
-          name: php
-          state: present
-
-      - name: Instalar Composer
-        get_url:
-          url: https://getcomposer.org/installer
-          dest: /tmp/composer-setup.php
-
-      - name: Instalar Composer globalmente
-        command: php /tmp/composer-setup.php --install-dir=/usr/local/bin --filename=composer
+    - name: Instalar Composer globalmente
+      ansible.builtin.command:
+        cmd: php /tmp/composer-setup.php --install-dir=/usr/local/bin --filename=composer
+      args:
         creates: /usr/local/bin/composer
 
-      - name: Instalar NestJS CLI globalmente
-        npm:
-          name: nestjs/cli
-          global: yes
+    - name: Instalar Laravel Installer via Composer
+      community.general.composer:
+        command: require
+        arguments: laravel/installer
+        global_command: true
+        executable: /usr/local/bin/composer
 
-      - name: Instalar Laravel Installer globalmente via Composer
-        command: composer global require laravel/installer
-        environment:
-          COMPOSER_HOME: /root/.composer
-        creates: /root/.composer/vendor/bin/laravel
+    - name: Adicionar Composer bin ao PATH
+      ansible.builtin.lineinfile:
+        path: "/home/{{ ansible_user_id }}/.bashrc"
+        line: 'export PATH="$PATH:$HOME/.config/composer/vendor/bin"'
+        state: present
+      become: false
 
-      - name: Adicionar Composer bin no PATH
-        lineinfile:
-          path: /root/.bashrc
-          line: export PATH="$PATH:$HOME/.composer/vendor/bin"
-          state: present
+    - name: Iniciar e habilitar Docker
+      ansible.builtin.systemd:
+        name: docker
+        enabled: true
+        state: started
 
-      - name: Instalar Docker
-        dnf:
-          name:
-            - docker
-            - docker-compose
-          state: present
+    - name: Adicionar usuário ao grupo docker
+      ansible.builtin.user:
+        name: "{{ ansible_user_id }}"
+        groups: docker
+        append: true
 
-      - name: Iniciar e habilitar o serviço Docker
-        systemd:
-          name: docker
-          enabled: yes
-          state: started
+    - name: Adicionar repositório Flathub
+      community.general.flatpak_remote:
+        name: flathub
+        state: present
+        flatpakrepo_url: https://flathub.org/repo/flathub.flatpakrepo
+        method: system
 
-      - name: Adicionar usuário atual ao grupo docker
-        user:
-          name: "{{ lookup('env', 'USER') }}"
-          groups: docker
-          append: yes
+    - name: Instalar LibreWolf via Flatpak
+      community.general.flatpak:
+        name: io.gitlab.librewolf-community
+        state: present
 
-      - name: Instalar GitHub CLI
-        dnf:
-          name: gh
-          state: present
+    - name: Adicionar repositório GitHub CLI
+      ansible.builtin.yum_repository:
+        name: github-cli
+        description: GitHub CLI
+        baseurl: https://cli.github.com/packages/rpm
+        enabled: true
+        gpgcheck: true
+        gpgkey: https://cli.github.com/packages/rpm/gh-cli.repo.gpg
 
-      - name: Instalar Flatpak
-        dnf:
-          name: flatpak
-          state: present
-
-      - name: Adicionar repositório Flathub
-        command: flatpak remote-add --if-not-exists flathub 
-          https://flathub.org/repo/flathub.flatpakrepo
-
-      - name: Instalar LibreWolf via Flatpak
-        command: flatpak install -y flathub io.gitlab.librewolf-community
-        args:
-          creates: /var/lib/flatpak/app/io.gitlab.librewolf-community
+    - name: Instalar GitHub CLI
+      ansible.builtin.dnf:
+        name: gh
+        state: present
