@@ -1,127 +1,127 @@
----
-- name: Configurar ambiente de desenvolvimento Fedora
-  hosts: localhost
-  become: yes
+  - name: Configurar ambiente de desenvolvimento Fedora
+    hosts: localhost
+    become: yes
 
-  vars:
-    nodejs_version: "20"  # Ajuste a versão se desejar
+    vars:
+      nodejs_version: '20' # Ajuste a versão se desejar
 
-  tasks:
-    - name: Atualizar pacotes
-      dnf:
-        name: "*"
-        state: latest
+    tasks:
+      - name: Atualizar pacotes
+        dnf:
+          name: '*'
+          state: latest
 
-    - name: Instalar Git
-      dnf:
-        name: git
-        state: present
+      - name: Instalar Git
+        dnf:
+          name: git
+          state: present
 
-    - name: Instalar VS Code repositório
-      command: rpm --import https://packages.microsoft.com/keys/microsoft.asc
-      args:
-        creates: /etc/yum.repos.d/vscode.repo
+      - name: Instalar VS Code repositório
+        command: rpm --import https://packages.microsoft.com/keys/microsoft.asc
+        args:
+          creates: /etc/yum.repos.d/vscode.repo
 
-    - name: Adicionar repositório VS Code
-      copy:
-        dest: /etc/yum.repos.d/vscode.repo
-        content: |
-          [code]
-          name=Visual Studio Code
-          baseurl=https://packages.microsoft.com/yumrepos/vscode
-          enabled=1
-          gpgcheck=1
-          gpgkey=https://packages.microsoft.com/keys/microsoft.asc
+      - name: Adicionar repositório VS Code
+        copy:
+          dest: /etc/yum.repos.d/vscode.repo
+          content: |
+            [code]
+            name=Visual Studio Code
+            baseurl=https://packages.microsoft.com/yumrepos/vscode
+            enabled=1
+            gpgcheck=1
+            gpgkey=https://packages.microsoft.com/keys/microsoft.asc
 
-    - name: Instalar VS Code
-      dnf:
-        name: code
-        state: present
+      - name: Instalar VS Code
+        dnf:
+          name: code
+          state: present
 
-    - name: Instalar Node.js e npm
-      dnf:
-        name: nodejs
-        state: present
+      - name: Instalar Node.js e npm
+        dnf:
+          name: nodejs
+          state: present
 
-    - name: Verificar se npm está instalado
-      command: npm --version
-      register: npm_version
-      failed_when: npm_version.rc != 0
+      - name: Verificar se npm está instalado
+        command: npm --version
+        register: npm_version
+        failed_when: npm_version.rc != 0
 
-    - name: Instalar pnpm globalmente
-      npm:
-        name: pnpm
-        global: yes
+      - name: Instalar pnpm globalmente
+        npm:
+          name: pnpm
+          global: yes
 
-    - name: Instalar Yarn globalmente
-      npm:
-        name: yarn
-        global: yes
+      - name: Instalar Yarn globalmente
+        npm:
+          name: yarn
+          global: yes
 
-    - name: Instalar PHP
-      dnf:
-        name: php
-        state: present
+      - name: Instalar PHP
+        dnf:
+          name: php
+          state: present
 
-    - name: Instalar Composer
-      get_url:
-        url: https://getcomposer.org/installer
-        dest: /tmp/composer-setup.php
+      - name: Instalar Composer
+        get_url:
+          url: https://getcomposer.org/installer
+          dest: /tmp/composer-setup.php
 
-    - name: Instalar Composer globalmente
-      command: php /tmp/composer-setup.php --install-dir=/usr/local/bin --filename=composer
-      creates: /usr/local/bin/composer
+      - name: Instalar Composer globalmente
+        command: php /tmp/composer-setup.php --install-dir=/usr/local/bin --filename=composer
+        creates: /usr/local/bin/composer
 
-    - name: Instalar NestJS CLI globalmente
-      npm:
-        name: @nestjs/cli
-        global: yes
+      - name: Instalar NestJS CLI globalmente
+        npm:
+          name: nestjs/cli
+          global: yes
 
-    - name: Instalar Laravel Installer globalmente via Composer
-      command: composer global require laravel/installer
-      environment:
-        COMPOSER_HOME: /root/.composer
-      creates: /root/.composer/vendor/bin/laravel
+      - name: Instalar Laravel Installer globalmente via Composer
+        command: composer global require laravel/installer
+        environment:
+          COMPOSER_HOME: /root/.composer
+        creates: /root/.composer/vendor/bin/laravel
 
-    - name: Adicionar Composer bin no PATH
-      lineinfile:
-        path: /root/.bashrc
-        line: 'export PATH="$PATH:$HOME/.composer/vendor/bin"'
-        state: present
+      - name: Adicionar Composer bin no PATH
+        lineinfile:
+          path: /root/.bashrc
+          line: export PATH="$PATH:$HOME/.composer/vendor/bin"
+          state: present
 
-    - name: Instalar Docker
-      dnf:
-        name:
-          - docker
-          - docker-compose
-        state: present
+      - name: Instalar Docker
+        dnf:
+          name:
+            - docker
+            - docker-compose
+          state: present
 
-    - name: Iniciar e habilitar o serviço Docker
-      systemd:
-        name: docker
-        enabled: yes
-        state: started
+      - name: Iniciar e habilitar o serviço Docker
+        systemd:
+          name: docker
+          enabled: yes
+          state: started
 
-    - name: Adicionar usuário atual ao grupo docker
-      user:
-        name: "{{ lookup('env', 'USER') }}"
-        groups: docker
-        append: yes
+      - name: Adicionar usuário atual ao grupo docker
+        user:
+          name: "{{ lookup('env', 'USER') }}"
+          groups: docker
+          append: yes
 
-    - name: Instalar GitHub CLI
-      dnf:
-        name: gh
-        state: present
+      - name: Instalar GitHub CLI
+        dnf:
+          name: gh
+          state: present
 
-    - name: Instalar Flatpak
-      dnf:
-        name: flatpak
-        state: present
+      - name: Instalar Flatpak
+        dnf:
+          name: flatpak
+          state: present
 
-    - name: Adicionar repositório Flathub
-      command: flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+      - name: Adicionar repositório Flathub
+        command: flatpak remote-add --if-not-exists flathub 
+          https://flathub.org/repo/flathub.flatpakrepo
 
-    - name: Instalar LibreWolf via Flatpak
-      command: flatpak install -y flathub io.gitlab.librewolf-community
-      args:
-        creates: /var/lib/flatpak/app/io.gitlab.librewolf-community
+      - name: Instalar LibreWolf via Flatpak
+        command: flatpak install -y flathub io.gitlab.librewolf-community
+        args:
+          creates: /var/lib/flatpak/app/io.gitlab.librewolf-community
